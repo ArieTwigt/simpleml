@@ -1,0 +1,112 @@
+---
+title: "Simple demo Supervised Learning"
+author: "Arie Twigt"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+# Create regression model for prediction of costs 'Personeelskosten' 
+
+## Import required libraries
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(dummies)
+```
+
+# 1. Data collection
+
+```{r}
+# Connect to database
+con <- dbConnect(SQLite(), dbname="database.db")
+
+# Import file
+res <- dbSendQuery(con, "select * from projecten")
+projecten <- dbFetch(res)
+
+# Check file
+str(projecten)
+summary(projecten)
+summary(factor(projecten$Type.Project))
+
+# Do some exploration of variables
+summary(factor(projecten$Type.Project))
+
+# Do some simple visualisations
+barplot(summary(factor(projecten$Type.Project)))
+```
+
+# 2. Normalization - Not needed - Very small dataset
+
+# 3. Dimension Reduction - Not needed - Very small dataset
+
+# 4. Data Augmentation
+
+```{r}
+# New variable: Costs per hour
+projecten$Kosten.Uur <- projecten$Personeelskosten / projecten$Uren.Project
+
+# check new variable
+head(projecten$Kosten.Uur)
+```
+
+# 5. Data Conversion - To one-hot-encoding
+
+```{r}
+# check variables
+str(projecten)
+projecten_oh <- dummy.data.frame(projecten, 
+                                 names = c("Werkgroep", "Maand", "Type.Project"), 
+                                 sep = "_")
+
+```
+
+
+# 6. Modelling - Experimenting
+
+```{r}
+# model 1: one variable
+model <- lm(Personeelskosten ~ Materiaalkosten, data = projecten_oh)
+print(model)
+summary(model)
+print("====================================================")
+
+# model 2: all variables
+model2 <- lm(Personeelskosten ~ ., data = projecten_oh)
+summary(model2)
+summary(model)
+print("====================================================")
+
+# model 3: roughly only take significant variables
+model3 <- lm(Personeelskosten ~ Tevredenheid.Klant + Uren.Project + Materiaalkosten  + Maand_januari,
+             data = projecten_oh)
+summary(model3)
+summary(model)
+print("====================================================")
+
+# model 3: roughly only take significant variables
+model4 <- lm(Personeelskosten ~ Uren.Project,
+             data = projecten_oh)
+summary(model4)
+summary(model)
+print("====================================================")
+```
+
+# 7. Visualizing
+
+```{r}
+plot(projecten_oh$Uren.Project, projecten_oh$Personeelskosten)
+print(model4)
+abline(712.8, 16.8)
+```
+
+# 8. Execute prediction
+
+```{r}
+
+new <- data.frame(Uren.Project = 200)
+predict(model4, newdata = new)
+```
